@@ -76,7 +76,7 @@ Kind regards,
                     title: "WhatsApp Unban Request",
                     body: "Use this to appeal your banned account",
                     mediaType: 1,
-                    renderLargerThumbnail: true,
+                    renderLargerThumbnail: false,
                     thumbnailUrl: "https://files.catbox.moe/sa1imb.jpg",
                     sourceUrl: "mailto:support@whatsapp.com"
                 }
