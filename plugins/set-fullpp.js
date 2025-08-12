@@ -43,7 +43,7 @@ cmd({
     await client.updateProfilePicture(botJid, finalImage);
 
     await client.sendMessage(from, {
-      text: "*✅ Bot's profile picture updated successfully!*"
+      text: "*✅ your profile picture updated successfully!*"
     }, { quoted: message });
 
   } catch (error) {
