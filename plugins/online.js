@@ -1,83 +1,66 @@
-const moment = require('moment-timezone');
 const config = require('../config');
 const { cmd } = require('../command');
 
-// Track last active members globally
-global.activeMembers = {};
-
-module.exports = (conn) => {
-    conn.ev.on('messages.upsert', async ({ messages }) => {
-        const msg = messages[0];
-        if (!msg.key.remoteJid.endsWith('@g.us')) return; // Only track groups
-        const sender = msg.key.participant || msg.key.remoteJid;
-        const now = Date.now();
-        global.activeMembers[msg.key.remoteJid] = global.activeMembers[msg.key.remoteJid] || {};
-        global.activeMembers[msg.key.remoteJid][sender] = now;
-    });
-};
-
 cmd({
     pattern: "online",
-    desc: "Show recently active members in the group.",
+    desc: "List all currently online members in a group",
     react: "🟢",
     category: "group",
     filename: __filename
 },
-async (conn, mek, m, {
-    from, isGroup, participants, reply, args
-}) => {
+async (conn, mek, m, { from, isGroup, reply, senderNumber }) => {
     try {
         if (!isGroup) {
             return reply("❌ This command can only be used in groups.");
         }
 
-        const now = Date.now();
-        const activeWindow = (parseInt(args[0]) || 5) * 60 * 1000; // default 5 minutes
-        let activeList = [];
+        // Get group metadata
+        const groupMetadata = await conn.groupMetadata(from);
+        const participants = groupMetadata.participants;
 
-        if (global.activeMembers[from]) {
-            for (let [jid, lastSeen] of Object.entries(global.activeMembers[from])) {
-                if (now - lastSeen <= activeWindow) {
-                    activeList.push(`@${jid.split('@')[0]} — ${moment(lastSeen).tz('Africa/Nairobi').format('HH:mm:ss')}`);
-                }
-            }
+        // Filter participants with 'online' status
+        const onlineMembers = participants.filter(p => p.isOnline || p.lastSeen === null);
+
+        if (onlineMembers.length === 0) {
+            return reply("📭 No members are currently online.");
         }
 
-        let text;
-        if (activeList.length === 0) {
-            text = `📴 No members have been active in the last ${activeWindow / 60000} minutes.`;
-        } else {
-            text = `🟢 *Recently Active Members (${activeList.length}) — Last ${activeWindow / 60000} min:*\n${activeList.join("\n")}`;
-        }
+        let msg = `🟢 *Online Members in ${groupMetadata.subject}*\n\n`;
+        onlineMembers.forEach((member, i) => {
+            const number = member.id.split('@')[0];
+            msg += `${i + 1}. @${number}\n`;
+        });
 
+        // Send with fake verified vCard as quoted message
         await conn.sendMessage(from, {
-            text,
-            mentions: participants.map(p => p.id),
+            text: msg,
+            mentions: onlineMembers.map(u => u.id),
             contextInfo: {
-                mentionedJid: participants.map(p => p.id),
-                forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363288304618280@newsletter',
-                    newsletterName: "PK-XMD UPDATES",
-                    serverMessageId: 143
-                }
-            }
-        }, {
-            quoted: {
-                key: { fromMe: false, participant: "0@s.whatsapp.net", remoteJid: "status@broadcast" },
-                message: {
+                mentionedJid: onlineMembers.map(u => u.id),
+                quotedMessage: {
                     contactMessage: {
-                        displayName: "WhatsApp",
-                        vcard: `BEGIN:VCARD\nVERSION:3.0\nFN:WhatsApp\nORG:Meta\nTEL;type=CELL;type=VOICE;waid=0:+0\nEND:VCARD`
+                        displayName: "PK-XMD",
+                        vcard: `BEGIN:VCARD\nVERSION:3.0\nFN:PK-XMD\nORG:WhatsApp\nTEL;type=CELL;type=VOICE;waid=${senderNumber}:${senderNumber}\nEND:VCARD`
                     }
+                },
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: "120363297733356905@newsletter",
+                    serverMessageId: 999,
+                    newsletterName: "PK-XMD Official"
+                },
+                externalAdReply: {
+                    title: "PK-XMD Online List",
+                    body: "Powered by Pkdriller",
+                    thumbnailUrl: config.LOGO_URL,
+                    sourceUrl: config.CHANNEL_URL,
+                    mediaType: 1,
+                    renderLargerThumbnail: true
                 }
             }
         });
 
     } catch (e) {
         console.error(e);
-        reply(`❌ Error: ${e}`);
+        reply(`❌ Error: ${e.message}`);
     }
 });
-    
