@@ -4,51 +4,60 @@ const config = require("../config");
 
 cmd({
   pattern: "quote",
-  desc: "Get a random inspirational quote",
+  desc: "Get a random motivational quote",
   category: "fun",
   filename: __filename
 }, async (conn, m) => {
   try {
-    // Fetch random quote
-    let res = await axios.get("https://api.quotable.io/random");
-    let data = res.data;
-
-    // Prepare fake verified vCard
-    let vcard = `BEGIN:VCARD\nVERSION:3.0\nFN:WhatsApp\nORG:WhatsApp;\nTEL;type=CELL;type=VOICE;waid=0:+0\nEND:VCARD`;
-
-    // Context info with forwardedNewsletterMessageInfo
-    let contextInfo = {
-      quotedMessage: {
-        contactMessage: {
-          displayName: "WhatsApp",
-          vcard: vcard
-        }
-      },
-      forwardingScore: 9999,
-      isForwarded: true,
-      forwardedNewsletterMessageInfo: {
-        newsletterJid: "120363288304618280@newsletter", // Your channel JID
-        serverMessageId: null,
-        newsletterName: "PK-XMD Official Updates"
-      },
-      externalAdReply: {
-        title: "📢 PK-XMD Official Channel",
-        body: "Tap to follow for updates",
-        thumbnailUrl: config.THUMBNAIL,
-        sourceUrl: "https://whatsapp.com/channel/0029Vad7YNyJuyA77CtIPX0x",
-        mediaType: 1,
-        renderLargerThumbnail: true
+    // Function to fetch quote from APIs
+    const fetchQuote = async () => {
+      try {
+        const res = await axios.get("https://zenquotes.io/api/random");
+        return `${res.data[0].q} — ${res.data[0].a}`;
+      } catch {
+        const res2 = await axios.get("https://api.quotable.io/random");
+        return `${res2.data.content} — ${res2.data.author}`;
       }
     };
 
-    // Send message
-    await conn.sendMessage(m.chat, {
-      text: `💡 *${data.content}*\n\n— ${data.author}`,
-      contextInfo
-    }, { quoted: m });
+    const quote = await fetchQuote();
 
-  } catch (e) {
-    console.error(e);
+    // Fake verified contact
+    const fakeContact = {
+      key: {
+        fromMe: false,
+        participant: "0@s.whatsapp.net",
+        remoteJid: "status@broadcast"
+      },
+      message: {
+        contactMessage: {
+          displayName: config.botname,
+          vcard: `BEGIN:VCARD\nVERSION:3.0\nFN:${config.botname}\nORG:Meta;WA Business\nTEL;type=CELL;type=VOICE;waid=254700000000:+254 700 000000\nEND:VCARD`
+        }
+      }
+    };
+
+    await conn.sendMessage(m.chat, {
+      text: `💡 *Quote of the Day:*\n\n${quote}`,
+      contextInfo: {
+        externalAdReply: {
+          title: "📢 PK-XMD QUOTES",
+          body: "Stay motivated!",
+          mediaType: 1,
+          thumbnailUrl: config.menuimg,
+          sourceUrl: "https://whatsapp.com/channel/0029Vad7YNyJuyA77CtIPX0x"
+        },
+        forwardedNewsletterMessageInfo: {
+          newsletterJid: "120363288304618280@newsletter",
+          newsletterName: "PK-XMD Official",
+          serverMessageId: 100
+        }
+      }
+    }, { quoted: fakeContact });
+
+  } catch (err) {
+    console.error(err);
     m.reply("❌ Failed to fetch quote. Please try again later.");
   }
 });
+          
