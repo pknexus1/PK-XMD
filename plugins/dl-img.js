@@ -47,7 +47,6 @@ cmd({
                             body: `Found results for "${query}"`,
                             thumbnailUrl: imageUrl,
                             mediaType: 1,
-                            renderLargerThumbnail: true,
                             sourceUrl: `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`
                         }
                     }
@@ -62,4 +61,3 @@ cmd({
         reply(`❌ Error: ${error.message || "Failed to fetch images"}`);
     }
 });
-            
