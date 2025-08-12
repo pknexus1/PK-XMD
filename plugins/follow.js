@@ -23,7 +23,7 @@ cmd({
           title: "PK-XMD Official Channel",
           body: "Tap to follow the channel",
           mediaType: 1,
-          thumbnailUrl: "https://files.catbox.moe/sa1imb.jpg",
+          thumbnailUrl: "https://files.catbox.moe/yvqhvk.jpg",
           sourceUrl: channelLink
         }
       }
