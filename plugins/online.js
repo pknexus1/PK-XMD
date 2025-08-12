@@ -1,91 +1,48 @@
-const { cmd } = require("../command");
-const config = require("../config");
+const { cmd } = require('../command');
+const config = require('../config');
 
 cmd({
   pattern: "online",
-  desc: "List all members currently online in the group",
+  desc: "Check online members in the group",
   category: "group",
   filename: __filename
-}, async (conn, m, store) => {
+}, async (conn, m, store, { from, isGroup, participants, reply }) => {
   try {
-    if (!m.isGroup) return m.reply("❌ This command only works in groups.");
+    if (!isGroup) return reply("❌ This command works in groups only.");
 
-    const groupMetadata = await conn.groupMetadata(m.chat);
-    const participants = groupMetadata.participants.map(p => p.id);
+    const onlineMembers = [];
+    const groupMetadata = await conn.groupMetadata(from);
 
-    let onlineMembers = [];
-    
-    // Fake verified vCard quoted message
-    const fakeContact = {
-      key: {
-        fromMe: false,
-        participant: "0@s.whatsapp.net",
-        remoteJid: "status@broadcast"
-      },
-      message: {
-        contactMessage: {
-          displayName: config.BOT_NAME || "PK-XMD",
-          vcard: `BEGIN:VCARD\nVERSION:3.0\nFN:${config.BOT_NAME || "PK-XMD"}\nORG:WhatsApp\nTEL;type=CELL;type=VOICE;waid=254768391601:+254 768 391 601\nEND:VCARD`
+    // Subscribe & check each participant
+    for (let member of groupMetadata.participants) {
+      try {
+        await conn.presenceSubscribe(member.id); 
+        // Wait a bit to let WhatsApp send presence update
+        await new Promise(res => setTimeout(res, 500));
+
+        const pres = store.presences?.[member.id]?.[from];
+        if (pres?.lastKnownPresence === 'available') {
+          onlineMembers.push(member.id);
         }
+      } catch (err) {
+        console.log(`Presence check failed for ${member.id}`, err);
       }
-    };
-
-    m.reply("⏳ Scanning for online members...", fakeContact);
-
-    // Subscribe to all members' presence
-    for (const jid of participants) {
-      await conn.presenceSubscribe(jid);
     }
 
-    // Wait for 5 seconds to collect online members
-    await new Promise(resolve => {
-      const handler = (pres) => {
-        if (pres.presences) {
-          for (const [id, presence] of Object.entries(pres.presences)) {
-            if (presence.lastKnownPresence === "composing" || presence.lastKnownPresence === "available") {
-              if (!onlineMembers.includes(id)) onlineMembers.push(id);
-            }
-          }
-        }
-      };
-
-      conn.ev.on("presence.update", handler);
-      setTimeout(() => {
-        conn.ev.off("presence.update", handler);
-        resolve();
-      }, 5000);
-    });
-
-    let text = `📡 *Online Members in ${groupMetadata.subject}*\n\n`;
     if (onlineMembers.length === 0) {
-      text += "No members are currently online.";
-    } else {
-      text += onlineMembers.map((id, i) => `★ ${i + 1}. @${id.split("@")[0]}`).join("\n");
+      return reply("📴 No members are currently online or visibility is restricted.");
     }
 
-    await conn.sendMessage(m.chat, {
-      text,
-      mentions: onlineMembers,
-      contextInfo: {
-        forwardedNewsletterMessageInfo: {
-          newsletterJid: config.CHANNEL || "120363297707316669@newsletter",
-          newsletterName: config.BOT_NAME || "PK-XMD",
-          serverMessageId: -1
-        },
-        externalAdReply: {
-          title: config.BOT_NAME || "PK-XMD",
-          body: "Powered by Pkdriller",
-          thumbnailUrl: config.LOGO_URL || "",
-          sourceUrl: config.GROUP_LINK || "https://whatsapp.com/channel/0029Va5Vb7K6QwOKroGJeC3C",
-          mediaType: 1,
-          renderLargerThumbnail: true
-        }
-      }
-    }, { quoted: fakeContact });
+    let text = `✅ *Online Members (${onlineMembers.length}):*\n`;
+    onlineMembers.forEach(u => text += `• @${u.split('@')[0]}\n`);
 
-  } catch (e) {
-    console.error(e);
-    m.reply("❌ An error occurred while checking online members.");
+    await conn.sendMessage(from, {
+      text,
+      mentions: onlineMembers
+    }, { quoted: m });
+
+  } catch (err) {
+    console.error(err);
+    reply("❌ Error checking online members.");
   }
 });
-                                
