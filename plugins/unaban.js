@@ -2,7 +2,7 @@ const { cmd } = require('../command');
 const config = require('../config');
 
 cmd({
-    pattern: "unban",
+    pattern: "unbann",
     desc: "Send a formatted WhatsApp unban appeal message.",
     category: "main",
     filename: __filename
