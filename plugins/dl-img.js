@@ -21,27 +21,39 @@ cmd({
         const url = `https://apis.davidcyriltech.my.id/googleimage?query=${encodeURIComponent(query)}`;
         const response = await axios.get(url);
 
-        // Validate response
         if (!response.data?.success || !response.data.results?.length) {
             return reply("❌ No images found. Try different keywords");
         }
 
         const results = response.data.results;
-        // Get 5 random images
-        const selectedImages = results
-            .sort(() => 0.5 - Math.random())
-            .slice(0, 5);
+        const selectedImages = results.sort(() => 0.5 - Math.random()).slice(0, 5);
 
         for (const imageUrl of selectedImages) {
             await conn.sendMessage(
                 from,
                 { 
                     image: { url: imageUrl },
-                    caption: `📷 Result for: ${query}\n> © Powered by JawadTechX`
+                    caption: `📷 Result for: ${query}`,
+                    contextInfo: {
+                        mentionedJid: [m.sender],
+                        forwardingScore: 9999,
+                        isForwarded: true,
+                        forwardedNewsletterMessageInfo: {
+                            newsletterJid: "120363288304618280@newsletter",
+                            newsletterName: "PK-XMD Official Channel"
+                        },
+                        externalAdReply: {
+                            title: "Image Search Result",
+                            body: `Found results for "${query}"`,
+                            thumbnailUrl: imageUrl,
+                            mediaType: 1,
+                            renderLargerThumbnail: true,
+                            sourceUrl: `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`
+                        }
+                    }
                 },
                 { quoted: mek }
             );
-            // Add delay between sends to avoid rate limiting
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
@@ -50,3 +62,4 @@ cmd({
         reply(`❌ Error: ${error.message || "Failed to fetch images"}`);
     }
 });
+            
