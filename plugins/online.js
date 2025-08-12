@@ -1,38 +1,53 @@
+const moment = require('moment-timezone');
 const config = require('../config');
 const { cmd } = require('../command');
-const moment = require('moment-timezone');
+
+// Track last active members globally
+global.activeMembers = {};
+
+module.exports = (conn) => {
+    conn.ev.on('messages.upsert', async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.key.remoteJid.endsWith('@g.us')) return; // Only track groups
+        const sender = msg.key.participant || msg.key.remoteJid;
+        const now = Date.now();
+        global.activeMembers[msg.key.remoteJid] = global.activeMembers[msg.key.remoteJid] || {};
+        global.activeMembers[msg.key.remoteJid][sender] = now;
+    });
+};
 
 cmd({
     pattern: "online",
     desc: "Show recently active members in the group.",
-    category: "group",
     react: "🟢",
+    category: "group",
     filename: __filename
 },
-async (conn, mek, m, { from, sender, isGroup, groupMetadata, participants, reply, store }) => {
+async (conn, mek, m, {
+    from, isGroup, participants, reply, args
+}) => {
     try {
-        if (!isGroup) return reply("❌ This command only works in groups.");
+        if (!isGroup) {
+            return reply("❌ This command can only be used in groups.");
+        }
 
         const now = Date.now();
-        const activeWindow = 5 * 60 * 1000; // 5 minutes
+        const activeWindow = (parseInt(args[0]) || 5) * 60 * 1000; // default 5 minutes
+        let activeList = [];
 
-        // Get messages from store for this group
-        let recentMessages = store.messages[from]?.array || [];
-        let activeMembers = new Set();
-
-        for (let msg of recentMessages) {
-            if (msg.messageTimestamp && (now - (msg.messageTimestamp.low || msg.messageTimestamp) * 1000) <= activeWindow) {
-                if (msg.key?.participant) {
-                    activeMembers.add(`@${msg.key.participant.split('@')[0]}`);
+        if (global.activeMembers[from]) {
+            for (let [jid, lastSeen] of Object.entries(global.activeMembers[from])) {
+                if (now - lastSeen <= activeWindow) {
+                    activeList.push(`@${jid.split('@')[0]} — ${moment(lastSeen).tz('Africa/Nairobi').format('HH:mm:ss')}`);
                 }
             }
         }
 
         let text;
-        if (activeMembers.size === 0) {
-            text = "📴 No members have been active in the last 5 minutes.";
+        if (activeList.length === 0) {
+            text = `📴 No members have been active in the last ${activeWindow / 60000} minutes.`;
         } else {
-            text = `🟢 *Recently Active Members (${activeMembers.size}):*\n${[...activeMembers].join("\n")}`;
+            text = `🟢 *Recently Active Members (${activeList.length}) — Last ${activeWindow / 60000} min:*\n${activeList.join("\n")}`;
         }
 
         await conn.sendMessage(from, {
@@ -61,8 +76,8 @@ async (conn, mek, m, { from, sender, isGroup, groupMetadata, participants, reply
         });
 
     } catch (e) {
-        console.error("Error in online command:", e);
-        reply(`❌ Error: ${e.message}`);
+        console.error(e);
+        reply(`❌ Error: ${e}`);
     }
 });
-            
+    
