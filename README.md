@@ -1,3 +1,10 @@
+
+<p align="center">
+  <a href="https://github.com/novaxmd/BMB-XMD-DATA/raw/refs/heads/main/bmb.jpg">
+    <img src="" width="100%" height="auto">
+  </a>
+</p>
+
 CLICK HERE TO DEPLOY YOUR OWN WHATSAPP BOT 
 
 
