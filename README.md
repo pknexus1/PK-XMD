@@ -1,6 +1,6 @@
 
 <p align="center">
-  <a href="https://github.com/novaxmd/BMB-XMD-DATA/raw/refs/heads/main/bmb.jpg">
+  <a 
     <img src="" width="100%" height="auto">
   </a>
 </p>
